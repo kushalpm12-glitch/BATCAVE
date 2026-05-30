@@ -1,0 +1,64 @@
+/* BATCAVE Theme Variables */
+
+:root {
+  /* Default Theme: Arkham Cyber Tactical */
+  --bg-primary: #05080c;
+  --bg-card: rgba(9, 14, 21, 0.65);
+  --bg-card-solid: #090e15;
+  --accent-color: #00e5ff;
+  --accent-rgb: 0, 229, 255;
+  --accent-glow: 0 0 12px rgba(0, 229, 255, 0.5);
+  --accent-glow-strong: 0 0 20px rgba(0, 229, 255, 0.7);
+  --border-color: rgba(0, 229, 255, 0.15);
+  --border-color-glow: rgba(0, 229, 255, 0.35);
+  --text-primary: #f4f6fa;
+  --text-secondary: #8b949e;
+  --text-muted: #4e5560;
+  
+  --success-color: #00ff66;
+  --success-rgb: 0, 255, 102;
+  --alert-color: #ff2a2a;
+  --alert-rgb: 255, 42, 42;
+  --font-mono: 'Share Tech Mono', 'Space Mono', 'Courier New', monospace;
+  --font-sans: 'Inter', -apple-system, sans-serif;
+  --scanline-opacity: 0.03;
+}
+
+/* 2022 Gothic Industrial Theme */
+[data-theme="gothic"] {
+  --bg-primary: #08080a;
+  --bg-card: rgba(13, 14, 18, 0.7);
+  --bg-card-solid: #0d0e12;
+  --accent-color: #ff3c00;
+  --accent-rgb: 255, 60, 0;
+  --accent-glow: 0 0 10px rgba(255, 60, 0, 0.4);
+  --accent-glow-strong: 0 0 18px rgba(255, 60, 0, 0.6);
+  --border-color: rgba(255, 60, 0, 0.15);
+  --border-color-glow: rgba(255, 60, 0, 0.3);
+  --text-primary: #f0f0f2;
+  --text-secondary: #909296;
+  --text-muted: #525458;
+  
+  --success-color: #ffaa00; /* Amber successful state */
+  --success-rgb: 255, 170, 0;
+  --scanline-opacity: 0.05;
+}
+
+/* Sync Integrity State Overrides */
+
+/* 1. Overdrive State (High Sync) */
+.state-overdrive {
+  --accent-glow: 0 0 22px rgba(var(--accent-rgb), 0.7) !important;
+  --border-color-glow: rgba(var(--accent-rgb), 0.6) !important;
+  --animation-multiplier: 0.5s; /* Speeds up scanline pulse */
+}
+
+/* 2. Critical State (Low Sync / Decay) */
+.state-decay {
+  --accent-color: #ff2a2a !important;
+  --accent-rgb: 255, 42, 42 !important;
+  --accent-glow: 0 0 10px rgba(255, 42, 42, 0.4) !important;
+  --border-color: rgba(255, 42, 42, 0.15) !important;
+  --border-color-glow: rgba(255, 42, 42, 0.3) !important;
+  --success-color: #ffaa00;
+}

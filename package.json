@@ -1,0 +1,14 @@
+{
+  "name": "batcave-hud",
+  "version": "1.0.0",
+  "description": "Batman-inspired personal operating system and productivity command center",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
