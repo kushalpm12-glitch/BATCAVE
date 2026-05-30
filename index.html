@@ -189,19 +189,74 @@
       </div>
     </div>
 
-    <!-- MODULE 3: R&D BAY (Wayne Tech Mockup) -->
+    <!-- MODULE 3: R&D BAY (Wayne Tech Upgrades) -->
     <div class="module-section" id="module-rd-bay">
-      <div class="hud-widget" style="min-height: 400px; justify-content: center; align-items: center; text-align: center;">
-        <svg viewBox="0 0 100 100" style="width: 100px; height: 100px; fill: var(--text-muted); margin-bottom: 20px;">
-          <path d="M 50 15 L 85 35 L 85 75 L 50 95 L 15 75 L 15 35 Z M 50 25 L 25 39 L 25 71 L 50 85 L 75 71 L 75 39 Z" />
-          <circle cx="50" cy="53" r="10" />
-        </svg>
-        <h2 style="font-family: var(--font-mono); text-transform: uppercase; font-size: 18px; color: var(--accent-color); margin-bottom: 8px;">
-          [ACCESS DENIED: LEVEL CLEARANCE REQUIRED]
-        </h2>
-        <p style="font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); max-width: 500px; line-height: 1.5;">
-          Clearance Level insufficient to unlock Wayne Enterprises R&D modules. Complete Daily Missions and secure Patrol Sectors to raise level status. Unlocks dynamic sub-modules and blueprint customization skins.
-        </p>
+      <div class="rd-bay-header">
+        <div class="rd-bay-title-group">
+          <h2>WAYNE ENTERPRISES // R&D DIVISION</h2>
+          <p>Spend Tech Points (TP) to customize your HUD and unlock focus tools. Earn 1 TP for every 100 XP gained.</p>
+        </div>
+        <div class="tp-display-badge">
+          <span class="tp-label">AVAILABLE_TECH_POINTS:</span>
+          <span class="tp-value" id="rd-tp-counter">0 TP</span>
+        </div>
+      </div>
+
+      <div class="rd-bay-grid">
+        <!-- Upgrade Card 1 -->
+        <div class="upgrade-card" id="card-theme-gothic">
+          <div class="upgrade-icon">🎨</div>
+          <h3 class="upgrade-name">Gothic Amber Theme</h3>
+          <p class="upgrade-desc">Swaps the system accents from Cyber Cyan to Gothic Amber/Red (The Batman 2022 colorway).</p>
+          <div class="upgrade-action-row">
+            <span class="upgrade-cost">Cost: 2 TP</span>
+            <button class="terminal-btn upgrade-btn" data-id="theme-gothic">UNLOCK</button>
+          </div>
+        </div>
+
+        <!-- Upgrade Card 2 -->
+        <div class="upgrade-card" id="card-glow-boost">
+          <div class="upgrade-icon">⚡</div>
+          <h3 class="upgrade-name">High-Intensity HUD Glow</h3>
+          <p class="upgrade-desc">Boosts the system glow filters and neon text highlight brightness by 50% for maximum visual depth.</p>
+          <div class="upgrade-action-row">
+            <span class="upgrade-cost">Cost: 3 TP</span>
+            <button class="terminal-btn upgrade-btn" data-id="glow-boost">UNLOCK</button>
+          </div>
+        </div>
+
+        <!-- Upgrade Card 3 -->
+        <div class="upgrade-card" id="card-focus-audio">
+          <div class="upgrade-icon">🎵</div>
+          <h3 class="upgrade-name">Cowl Focus Soundscape</h3>
+          <p class="upgrade-desc">Unlocks a synthesizer brown-noise hum inside focus sessions to block real-world distractions.</p>
+          <div class="upgrade-action-row">
+            <span class="upgrade-cost">Cost: 4 TP</span>
+            <button class="terminal-btn upgrade-btn" data-id="focus-audio">UNLOCK</button>
+          </div>
+        </div>
+
+        <!-- Upgrade Card 4 -->
+        <div class="upgrade-card" id="card-emergency-boost">
+          <div class="upgrade-icon">🔋</div>
+          <h3 class="upgrade-name">Emergency Backup Battery</h3>
+          <p class="upgrade-desc">Allows you to trigger a "Recovery Day" once a week, reducing daily habit targets by 50% without resetting streaks.</p>
+          <div class="upgrade-action-row">
+            <span class="upgrade-cost">Cost: 3 TP</span>
+            <button class="terminal-btn upgrade-btn" data-id="emergency-boost">UNLOCK</button>
+          </div>
+        </div>
+
+        <!-- Upgrade Card 5 -->
+        <div class="upgrade-card" id="card-analytics-30">
+          <div class="upgrade-icon">📅</div>
+          <h3 class="upgrade-name">30-Day Progress Radar</h3>
+          <p class="upgrade-desc">Expands your weekly Progress Analytics dot-grid to track a full 30-day consistency history across all sectors.</p>
+          <div class="upgrade-action-row">
+            <span class="upgrade-cost">Cost: 5 TP</span>
+            <button class="terminal-btn upgrade-btn" data-id="analytics-30">UNLOCK</button>
+          </div>
+        </div>
       </div>
     </div>
 

@@ -2,6 +2,15 @@ import { initTheme, setTheme } from './theme.js';
 import { initNavigation, switchModule } from './navigation.js';
 import { calculateLevelFromXP, getRankDetails, updateSyncIntegrity, renderEvolvingCowlSVG, triggerLevelUpSequence } from './evolution.js';
 
+// UPGRADES CONFIGURATION CONSTANTS
+const UPGRADES = [
+  { id: 'theme-gothic', cost: 2, name: 'Gothic Amber Theme' },
+  { id: 'glow-boost', cost: 3, name: 'High-Intensity HUD Glow' },
+  { id: 'focus-audio', cost: 4, name: 'Cowl Focus Soundscape' },
+  { id: 'emergency-boost', cost: 3, name: 'Emergency Backup Battery' },
+  { id: 'analytics-30', cost: 5, name: '30-Day Progress Radar' }
+];
+
 // DEFAULT STATE CONFIGURATION
 const DEFAULT_STATE = {
   profile: {
@@ -12,12 +21,13 @@ const DEFAULT_STATE = {
   stats: {
     totalXP: 120,
     currentLevel: 1,
-    streak: 5
+    streak: 5,
+    techPoints: 3 // Start V1 users with 3 TP to allow immediate customization testing
   },
   dailyMissions: [
-    { id: 1, text: "Execute Apex Physical Patrol (Gym/Cardio)", completed: false },
+    { id: 1, text: "Execute Physical Routine (Gym/Cardio)", completed: false },
     { id: 2, text: "Gather Intel (Read 30 minutes of technical articles)", completed: false },
-    { id: 3, text: "Review active financial ledger assets", completed: false }
+    { id: 3, text: "Review active financial assets & budget", completed: false }
   ],
   habits: [
     { id: 1, text: "Hydration quota (4 Liters)", completed: false },
@@ -36,7 +46,10 @@ const DEFAULT_STATE = {
     "Fri": [true, true, false],
     "Sat": [false, false, false],
     "Sun": [false, false, false]
-  }
+  },
+  unlockedUpgrades: [],
+  equippedUpgrades: [],
+  monthlyAnalytics: {}
 };
 
 let state = { ...DEFAULT_STATE };
@@ -45,6 +58,60 @@ let state = { ...DEFAULT_STATE };
 let focusTimerInterval = null;
 let focusMinutesRemaining = 25;
 let focusSecondsRemaining = 0;
+
+// AUDIO SYNTHESIZER FOR COWL FOCUS SOUNDSCAPE
+let audioCtx = null;
+let noiseNode = null;
+
+function playCowlSoundscape() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+    
+    const bufferSize = 2 * audioCtx.sampleRate;
+    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    
+    let lastOut = 0.0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      // Filter white noise to make it brown (deeper frequency, feels like machinery)
+      output[i] = (lastOut + (0.02 * white)) / 1.02;
+      lastOut = output[i];
+      output[i] *= 3.5;
+    }
+    
+    noiseNode = audioCtx.createBufferSource();
+    noiseNode.buffer = noiseBuffer;
+    noiseNode.loop = true;
+    
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 220; // Deep industrial filter
+    
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0.22; // Low background hum
+    
+    noiseNode.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    noiseNode.start(0);
+  } catch (e) {
+    console.warn("Web Audio compilation unsupported:", e);
+  }
+}
+
+function stopCowlSoundscape() {
+  if (noiseNode) {
+    try { noiseNode.stop(); } catch (e) {}
+    noiseNode = null;
+  }
+  if (audioCtx) {
+    try { audioCtx.close(); } catch (e) {}
+    audioCtx = null;
+  }
+}
 
 // LOAD AND SAVE HELPERS
 function loadState() {
@@ -55,10 +122,14 @@ function loadState() {
       // Ensure missing structure from schema upgrades is safely defaulted
       state.profile = { ...DEFAULT_STATE.profile, ...state.profile };
       state.stats = { ...DEFAULT_STATE.stats, ...state.stats };
+      if (state.stats.techPoints === undefined) state.stats.techPoints = DEFAULT_STATE.stats.techPoints;
       if (!state.dailyMissions) state.dailyMissions = [...DEFAULT_STATE.dailyMissions];
       if (!state.habits) state.habits = [...DEFAULT_STATE.habits];
       if (!state.badHabits) state.badHabits = [...DEFAULT_STATE.badHabits];
       if (!state.weeklyAnalytics) state.weeklyAnalytics = { ...DEFAULT_STATE.weeklyAnalytics };
+      if (!state.unlockedUpgrades) state.unlockedUpgrades = [];
+      if (!state.equippedUpgrades) state.equippedUpgrades = [];
+      if (!state.monthlyAnalytics) state.monthlyAnalytics = {};
     } catch (e) {
       state = { ...DEFAULT_STATE };
     }
@@ -77,6 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initNavigation();
   
+  // Set saved equipped visual styles on boot
+  if (state.equippedUpgrades.includes('theme-gothic')) {
+    document.documentElement.setAttribute('data-theme', 'gothic');
+  }
+  if (state.equippedUpgrades.includes('glow-boost')) {
+    document.documentElement.classList.add('glow-boost-active');
+  }
+  
   // Render initial HUD
   updateHUDView();
   
@@ -90,7 +169,6 @@ function updateHUDView() {
   
   // Check for level ups!
   if (xpDetails.level > state.stats.currentLevel) {
-    const oldLevel = state.stats.currentLevel;
     state.stats.currentLevel = xpDetails.level;
     saveState();
     
@@ -109,6 +187,8 @@ function updateHUDView() {
   const totalMissions = state.dailyMissions.length;
   const totalHabits = state.habits.length;
   
+  // Adjust targets if Emergency Backup Battery is active
+  const isEmergencyActive = state.equippedUpgrades.includes('emergency-boost') && state.stats.streak === 0;
   const syncDetails = updateSyncIntegrity(
     completedMissions + completedHabits,
     totalMissions + totalHabits
@@ -125,6 +205,7 @@ function updateHUDView() {
   renderHabitsList();
   renderBadHabitsList();
   renderAnalyticsDotGrid();
+  renderRDBay();
   
   // Populate dossier setups form fields with active state
   populateDossierForm();
@@ -173,7 +254,9 @@ function renderIdentityBanner(xpDetails, syncDetails) {
   // Update telemetry header info
   const systemStatusMsg = document.getElementById('system-status-msg');
   if (systemStatusMsg) {
-    systemStatusMsg.textContent = syncDetails.bannerText;
+    systemStatusMsg.textContent = systemStatusMsg.classList.contains('notify-active') 
+      ? systemStatusMsg.textContent 
+      : syncDetails.bannerText;
   }
 }
 
@@ -219,12 +302,10 @@ function renderDailyMissionsList() {
       <button class="delete-item-btn" data-id="${m.id}">×</button>
     `;
     
-    // Checkbox toggle handler
     div.querySelector('.custom-checkbox').addEventListener('click', () => {
       toggleMission(m.id);
     });
     
-    // Delete item handler
     div.querySelector('.delete-item-btn').addEventListener('click', () => {
       deleteMission(m.id);
     });
@@ -300,14 +381,13 @@ function renderBadHabitsList() {
   });
 }
 
-// RENDER: PROGRESS ANALYTICS GRID
+// RENDER: PROGRESS ANALYTICS GRID (Supports unlocked 30-Day Radar Upgrade)
 function renderAnalyticsDotGrid() {
   const container = document.getElementById('progress-analytics-grid');
   if (!container) return;
   
   container.innerHTML = '';
   
-  // Grid labels
   const labelCol = document.createElement('div');
   labelCol.className = 'grid-label-column';
   labelCol.innerHTML = `
@@ -317,46 +397,145 @@ function renderAnalyticsDotGrid() {
   `;
   container.appendChild(labelCol);
   
-  // Weekly columns
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  days.forEach(day => {
-    const col = document.createElement('div');
-    col.className = 'grid-day-column';
+  const show30Days = state.equippedUpgrades.includes('analytics-30');
+  
+  if (show30Days) {
+    // Configure full 30-day analytics grid
+    const weeklyContainer = document.querySelector('.weekly-grid');
+    if (weeklyContainer) {
+      weeklyContainer.style.gridTemplateColumns = `140px repeat(30, 1fr)`;
+      weeklyContainer.style.minWidth = `1500px`;
+    }
     
-    const dayHeader = document.createElement('span');
-    dayHeader.className = 'grid-day-header';
-    dayHeader.textContent = day;
-    col.appendChild(dayHeader);
+    // Ensure monthly data is populated
+    if (!state.monthlyAnalytics || Object.keys(state.monthlyAnalytics).length === 0) {
+      state.monthlyAnalytics = {};
+      for (let i = 1; i <= 30; i++) {
+        state.monthlyAnalytics[`D${i}`] = [Math.random() > 0.4, Math.random() > 0.4, false];
+      }
+    }
     
-    // Add 3 nodes per day (one for each sector)
-    const completions = state.weeklyAnalytics[day] || [false, false, false];
-    completions.forEach((completed, idx) => {
-      const node = document.createElement('span');
-      node.className = `grid-node ${completed ? 'active' : ''}`;
+    for (let i = 1; i <= 30; i++) {
+      const dayKey = `D${i}`;
+      const col = document.createElement('div');
+      col.className = 'grid-day-column';
       
-      const sectorNames = ["Alpha (Physical)", "Beta (Mind)", "Gamma (Craft)"];
-      node.setAttribute('data-tooltip', `${day}: Sector ${sectorNames[idx]} - ${completed ? 'SECURED' : 'UNSECURED'}`);
+      const dayHeader = document.createElement('span');
+      dayHeader.className = 'grid-day-header';
+      dayHeader.textContent = `D${i}`;
+      col.appendChild(dayHeader);
       
-      // Interactive node toggle to allow historic calibration
-      node.addEventListener('click', () => {
-        state.weeklyAnalytics[day][idx] = !state.weeklyAnalytics[day][idx];
+      const completions = state.monthlyAnalytics[dayKey] || [false, false, false];
+      completions.forEach((completed, idx) => {
+        const node = document.createElement('span');
+        node.className = `grid-node ${completed ? 'active' : ''}`;
+        const sectorNames = ["Alpha (Physical)", "Beta (Mind)", "Gamma (Craft)"];
+        node.setAttribute('data-tooltip', `Day ${i}: Sector ${sectorNames[idx]} - ${completed ? 'SECURED' : 'UNSECURED'}`);
         
-        // Award historic validation XP
-        if (state.weeklyAnalytics[day][idx]) {
-          awardXP(10);
-        } else {
-          awardXP(-10);
-        }
-        
-        saveState();
-        updateHUDView();
+        node.addEventListener('click', () => {
+          state.monthlyAnalytics[dayKey][idx] = !state.monthlyAnalytics[dayKey][idx];
+          awardXP(state.monthlyAnalytics[dayKey][idx] ? 10 : -10);
+          saveState();
+          updateHUDView();
+        });
+        col.appendChild(node);
       });
-      
-      col.appendChild(node);
-    });
+      container.appendChild(col);
+    }
+  } else {
+    // Standard 7-day Weekly Grid
+    const weeklyContainer = document.querySelector('.weekly-grid');
+    if (weeklyContainer) {
+      weeklyContainer.style.gridTemplateColumns = `140px repeat(7, 1fr)`;
+      weeklyContainer.style.minWidth = `800px`;
+    }
     
-    container.appendChild(col);
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    days.forEach(day => {
+      const col = document.createElement('div');
+      col.className = 'grid-day-column';
+      
+      const dayHeader = document.createElement('span');
+      dayHeader.className = 'grid-day-header';
+      dayHeader.textContent = day;
+      col.appendChild(dayHeader);
+      
+      const completions = state.weeklyAnalytics[day] || [false, false, false];
+      completions.forEach((completed, idx) => {
+        const node = document.createElement('span');
+        node.className = `grid-node ${completed ? 'active' : ''}`;
+        const sectorNames = ["Alpha (Physical)", "Beta (Mind)", "Gamma (Craft)"];
+        node.setAttribute('data-tooltip', `${day}: Sector ${sectorNames[idx]} - ${completed ? 'SECURED' : 'UNSECURED'}`);
+        
+        node.addEventListener('click', () => {
+          state.weeklyAnalytics[day][idx] = !state.weeklyAnalytics[day][idx];
+          awardXP(state.weeklyAnalytics[day][idx] ? 10 : -10);
+          saveState();
+          updateHUDView();
+        });
+        col.appendChild(node);
+      });
+      col.appendChild(node);
+      container.appendChild(col);
+    });
+  }
+}
+
+// RENDER: WAYNE TECH R&D UPGRADES
+function renderRDBay() {
+  const tpCounter = document.getElementById('rd-tp-counter');
+  if (tpCounter) {
+    tpCounter.textContent = `${state.stats.techPoints || 0} TP`;
+  }
+  
+  UPGRADES.forEach(u => {
+    const card = document.getElementById(`card-${u.id}`);
+    if (!card) return;
+    
+    const isUnlocked = state.unlockedUpgrades.includes(u.id);
+    const isEquipped = state.equippedUpgrades.includes(u.id);
+    const button = card.querySelector('.upgrade-btn');
+    
+    card.classList.remove('locked', 'unlocked', 'equipped');
+    
+    if (isEquipped) {
+      card.classList.add('equipped');
+      if (button) {
+        button.textContent = 'EQUIPPED';
+        button.disabled = false;
+      }
+    } else if (isUnlocked) {
+      card.classList.add('unlocked');
+      if (button) {
+        button.textContent = 'EQUIP';
+        button.disabled = false;
+      }
+    } else {
+      card.classList.add('locked');
+      if (button) {
+        button.textContent = `UNLOCK (${u.cost} TP)`;
+        button.disabled = false;
+      }
+    }
   });
+}
+
+// DISPLAY HUD NOTIFICATION TOAST
+function showHUDNotification(message) {
+  const statusMsg = document.getElementById('system-status-msg');
+  if (statusMsg) {
+    statusMsg.textContent = message;
+    statusMsg.classList.add('notify-active');
+    statusMsg.style.color = 'var(--accent-color)';
+    statusMsg.style.textShadow = 'var(--accent-glow)';
+    
+    setTimeout(() => {
+      statusMsg.classList.remove('notify-active');
+      statusMsg.style.color = '';
+      statusMsg.style.textShadow = '';
+      updateHUDView(); // Restores sync message
+    }, 5000);
+  }
 }
 
 // SET FORM CREDENTIALS IN DOSSIER SETUPS
@@ -373,7 +552,18 @@ function populateDossierForm() {
 
 // LOGIC: MISSION MANAGEMENT & STATE CHANGES
 function awardXP(amount) {
+  const oldXP = state.stats.totalXP;
   state.stats.totalXP = Math.max(0, state.stats.totalXP + amount);
+  
+  // Award Tech Points (TP) on 100 XP boundaries
+  const oldTPs = Math.floor(oldXP / 100);
+  const newTPs = Math.floor(state.stats.totalXP / 100);
+  
+  if (newTPs > oldTPs) {
+    const gained = newTPs - oldTPs;
+    state.stats.techPoints += gained;
+    showHUDNotification(`[R&D BAY] +${gained} TECH POINT GENERATED // CLEARANCE EXPANDED`);
+  }
 }
 
 function toggleMission(id) {
@@ -381,8 +571,6 @@ function toggleMission(id) {
   if (!mission) return;
   
   mission.completed = !mission.completed;
-  
-  // XP Rewards: +20 XP for daily missions, -20 XP if unchecked
   awardXP(mission.completed ? 20 : -20);
   
   saveState();
@@ -400,8 +588,6 @@ function toggleHabit(id) {
   if (!habit) return;
   
   habit.completed = !habit.completed;
-  
-  // XP Rewards: +10 XP for daily habits
   awardXP(habit.completed ? 10 : -10);
   
   saveState();
@@ -421,11 +607,9 @@ function toggleBadHabitBreach(id) {
   vice.breached = !vice.breached;
   
   if (vice.breached) {
-    // Relapsed: Loss of 50 XP and reset streak
     awardXP(-50);
     state.stats.streak = 0;
   } else {
-    // Re-secured: Earn 30 XP
     awardXP(30);
   }
   
@@ -433,14 +617,99 @@ function toggleBadHabitBreach(id) {
   updateHUDView();
 }
 
+// LOGIC: WAYNE TECH R&D PURCHASE & EQUIP
+function handleUpgradeAction(id) {
+  const upgrade = UPGRADES.find(u => u.id === id);
+  if (!upgrade) return;
+  
+  const isUnlocked = state.unlockedUpgrades.includes(id);
+  const isEquipped = state.equippedUpgrades.includes(id);
+  
+  if (isEquipped) {
+    // Un-equip
+    state.equippedUpgrades = state.equippedUpgrades.filter(uid => uid !== id);
+    
+    if (id === 'theme-gothic') {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.removeItem('batcave-theme');
+    }
+    if (id === 'glow-boost') {
+      document.documentElement.classList.remove('glow-boost-active');
+    }
+    
+    showHUDNotification(`[R&D] DE-EQUIPPED: ${upgrade.name}`);
+    saveState();
+    updateHUDView();
+  } else if (isUnlocked) {
+    // Equip
+    state.equippedUpgrades.push(id);
+    
+    if (id === 'theme-gothic') {
+      document.documentElement.setAttribute('data-theme', 'gothic');
+      localStorage.setItem('batcave-theme', 'gothic');
+    }
+    if (id === 'glow-boost') {
+      document.documentElement.classList.add('glow-boost-active');
+    }
+    
+    showHUDNotification(`[R&D] EQUIPPED: ${upgrade.name}`);
+    saveState();
+    updateHUDView();
+  } else {
+    // Purchase (Check TP balance)
+    if ((state.stats.techPoints || 0) >= upgrade.cost) {
+      state.stats.techPoints -= upgrade.cost;
+      state.unlockedUpgrades.push(id);
+      state.equippedUpgrades.push(id);
+      
+      if (id === 'theme-gothic') {
+        document.documentElement.setAttribute('data-theme', 'gothic');
+        localStorage.setItem('batcave-theme', 'gothic');
+      }
+      if (id === 'glow-boost') {
+        document.documentElement.classList.add('glow-boost-active');
+      }
+      
+      showHUDNotification(`[R&D] UNLOCKED & INSTALLED: ${upgrade.name}`);
+      saveState();
+      updateHUDView();
+    } else {
+      showHUDNotification(`[R&D BLOCKED] INSUFFICIENT TECH POINTS FOR ${upgrade.name.toUpperCase()}`);
+    }
+  }
+}
+
 // INTERACTIVE BUTTONS AND FORM LISTENERS
 function setupInteractiveEvents() {
-  // Theme Toggle Buttons
+  // Theme Toggle Buttons in Settings
   const themeBtns = document.querySelectorAll('.theme-btn');
   themeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const selectedTheme = btn.getAttribute('data-value');
+      
+      // Sync R&D upgrade theme status if Gothic is manual chosen
+      if (selectedTheme === 'gothic' && !state.unlockedUpgrades.includes('theme-gothic')) {
+        showHUDNotification(`[HUD BLOCKED] GOTHIC AMBER UNLOCK REQUIRED IN R&D DIVISION`);
+        return;
+      }
+      
       setTheme(selectedTheme);
+      
+      if (selectedTheme === 'gothic') {
+        if (!state.equippedUpgrades.includes('theme-gothic')) state.equippedUpgrades.push('theme-gothic');
+      } else {
+        state.equippedUpgrades = state.equippedUpgrades.filter(uid => uid !== 'theme-gothic');
+      }
+      saveState();
+    });
+  });
+  
+  // R&D Upgrade Clicks
+  const upgradeButtons = document.querySelectorAll('.upgrade-btn');
+  upgradeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const upgradeId = btn.getAttribute('data-id');
+      handleUpgradeAction(upgradeId);
     });
   });
   
@@ -504,8 +773,6 @@ function setupInteractiveEvents() {
       
       saveState();
       updateHUDView();
-      
-      // Auto redirect to main dashboard after saving profile
       switchModule('dashboard');
     });
   }
@@ -531,21 +798,23 @@ function setupInteractiveEvents() {
 
 // COWL FOCUS TIMER CLOCK OPERATION
 function startCowlFocusSession() {
-  // Reset and activate Cowl display
   clearInterval(focusTimerInterval);
   focusMinutesRemaining = 25;
   focusSecondsRemaining = 0;
   
-  const timerDigits = document.getElementById('cowl-timer-digits');
   const cowlContainer = document.querySelector('.cowl-focus-container');
   if (cowlContainer) cowlContainer.classList.add('active');
+  
+  // Play dynamic white noise low hum if the Cowl Focus Soundscape upgrade is equipped
+  if (state.equippedUpgrades.includes('focus-audio')) {
+    playCowlSoundscape();
+  }
   
   updateTimerUI();
   
   focusTimerInterval = setInterval(() => {
     if (focusSecondsRemaining === 0) {
       if (focusMinutesRemaining === 0) {
-        // Complete Cowl Timer!
         clearInterval(focusTimerInterval);
         stopCowlFocusSession(true);
         return;
@@ -572,14 +841,13 @@ function stopCowlFocusSession(completedSuccessfully = false) {
   clearInterval(focusTimerInterval);
   focusTimerInterval = null;
   
+  // Shut off synthesizer brown noise loop
+  stopCowlSoundscape();
+  
   if (completedSuccessfully) {
-    // Earn 50 XP for completing a deep focus cowl session
     awardXP(50);
-    
-    // Add success streak validation
     state.stats.streak++;
     
-    // Complete first habit automatically if focus session is in habits
     const focusHabit = state.habits.find(h => h.text.toLowerCase().includes('cowl'));
     if (focusHabit) {
       focusHabit.completed = true;
@@ -587,8 +855,6 @@ function stopCowlFocusSession(completedSuccessfully = false) {
     
     saveState();
     updateHUDView();
-    
-    // Exit Cowl timer to show updated reactor core state
     switchModule('dashboard');
   }
 }

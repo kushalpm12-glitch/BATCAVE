@@ -62,3 +62,10 @@
   --border-color-glow: rgba(255, 42, 42, 0.3) !important;
   --success-color: #ffaa00;
 }
+
+/* High-Intensity Glow Boost Upgrade Override */
+.glow-boost-active {
+  --accent-glow: 0 0 24px rgba(var(--accent-rgb), 0.75) !important;
+  --accent-glow-strong: 0 0 35px rgba(var(--accent-rgb), 0.95) !important;
+  --border-color-glow: rgba(var(--accent-rgb), 0.6) !important;
+}
